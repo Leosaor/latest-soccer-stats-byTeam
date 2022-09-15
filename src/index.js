@@ -1,16 +1,22 @@
 import puppeteer from 'puppeteer';
 import fs from 'fs';
+import { exec } from 'child_process';
 
-const teamNameInUrl = 'vasco'
-const teamCodeInFlashscore = '2RABlYFn'
-const amountOfMatches = '5';
+const teamNameInUrl = process.argv[2] || 'vasco'
+const teamCodeInFlashscore = process.argv[3] || '2RABlYFn'
+const amountOfMatches = process.argv[4] || '5';
 const url = `https://www.flashscore.com/team/${teamNameInUrl}/${teamCodeInFlashscore}/results/`;
 
 async function getStats() {
     console.log('Running...');
-    const browser = await puppeteer.launch({ headless: false });
+    const browser = await puppeteer.launch({ headless: true });
     const page = await browser.newPage();
     await page.goto(url);
+    const invalidUrl = await page.$eval('p', (el) => el.innerText);
+    if(invalidUrl == `Error: The requested page can't be displayed. Please try again later.`) {
+        console.log(`Invalid url, please check the team name and code in flashscore\nThe correct input format:\nnpm start (TeamNameLikeInURL) (teamCodeInFlashscore) (AmountOfMatches)\nOr use only "npm start" to get the last 5 stats matches from Vasco da Gama`);
+        process.exit(1);
+    }
     const teamName = await page.$eval('.heading__name', (el) => el.innerText);
     const matches = await page.$$eval('[id^="g_1_"]', (el) =>{
         return el.map((el) => el.id.replace('g_1_', ''));
@@ -36,7 +42,11 @@ async function getStats() {
                 if (err) throw err;
             });
         };
+        console.log(`Match ${i+1} statistics saved.`);
     };
+    console.log('\nAll matches statistics saved.');
     await browser.close();
+    exec('notepad.exe src/stats.txt');
+
 }
 getStats();
